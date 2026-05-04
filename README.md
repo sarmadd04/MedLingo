@@ -275,15 +275,18 @@ medlingo/
 
 ```bibtex
 @inproceedings{sultan2026medlingo,
-  title     = {MedLingo: Resource-Efficient Hierarchical Multi-Agent Intelligence
-               for Autonomous Clinical and Robotic Diagnostics},
-  author    = {Sultan, Sarmad and Ullah, Muhammad Sami and Jan, Ahmad and
-               Rizwan, Muhammad Dawood and Bajwa, Muhammad Naseer and
-               Fraz, Muhammad Moazam},
-  booktitle = {Proceedings of the International Conference on Robotics
-               and Artificial Intelligence (ICRAI)},
-  year      = {2026},
-  institution = {National University of Sciences and Technology (NUST)}
+  title        = {MedLingo: Resource-Efficient Hierarchical Multi-Agent Intelligence
+                  for Autonomous Clinical and Robotic Diagnostics},
+  author       = {Sarmad Sultan and Muhammad Sami Ullah and Ahmad Jan and
+                  Muhammad Dawood Rizwan and Muhammad Naseer Bajwa and
+                  Muhammad Moazam Fraz},
+  booktitle    = {Proceedings of the IEEE 7th International Conference on
+                  Robotics and Automation in Industry (ICRAI)},
+  year         = {2026},
+  organization = {IEEE},
+  institution  = {National University of Sciences and Technology (NUST),
+                  Islamabad, Pakistan and University of Staffordshire,
+                  Stoke-on-Trent, United Kingdom}
 }
 ```
 
