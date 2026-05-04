@@ -1,0 +1,149 @@
+# =============================================================================
+# MedLingo Training Configuration
+# Hyperparameters sourced directly from Table II of the MedLingo paper.
+# =============================================================================
+
+general:
+  seed: 42
+  output_dir: "${MEDLINGO_WEIGHTS_DIR}/checkpoints"
+  logging_dir: "${MEDLINGO_WEIGHTS_DIR}/logs"
+  report_to: "wandb"             # Switch to "none" to disable W&B
+  dataloader_num_workers: 4
+  fp16: false
+  bf16: true                     # BF16 preferred on Ampere+ GPUs
+  gradient_checkpointing: true
+  ddp_find_unused_parameters: false
+
+# ---------------------------------------------------------------------------
+# Stage 1: Dual-Path Multimodal Alignment
+# Objective: Train projection bridges only; all LLM params frozen
+# Dataset: LLaVA-Med (~600k image-text pairs)
+# ---------------------------------------------------------------------------
+stage1:
+  name: "dual_path_alignment"
+  objective: "cross_entropy"
+  dataset: "llava_med"
+  dataset_size: 600000
+  train_split: 0.98
+  val_split: 0.02
+  learning_rate: 1.0e-3
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 16   # Effective batch = 256
+  num_train_epochs: 1
+  max_seq_length: 2048
+  save_steps: 500
+  eval_steps: 500
+  logging_steps: 50
+  trainable_modules:
+    - "projection_bridge_a"
+    - "projection_bridge_b"
+  frozen_modules:
+    - "vision_encoder"
+    - "specialist_backbone"
+    - "adjudicator_backbone"
+
+# ---------------------------------------------------------------------------
+# Stage 2: Specialist Knowledge Injection
+# Objective: LoRA fine-tuning of 6 domain experts
+# Dataset: PathVQA + RadVQA + SLAKE + PMC-VQA (~300k pairs)
+# ---------------------------------------------------------------------------
+stage2:
+  name: "specialist_injection"
+  objective: "causal_lm"
+  datasets:
+    pathology: "pathvqa"
+    radiology: "radvqa"
+    dermatology: "pad_ufes_20"
+    cardiology: "mimic_iv_vqa"
+    neurology: "medmnist_brain"
+    general_medicine: "pmc_vqa"
+  combined_dataset_size: 300000
+  train_split: 0.95
+  val_split: 0.05
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.1
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 16   # Effective batch = 128
+  num_train_epochs: 3
+  max_seq_length: 2048
+  save_steps: 250
+  eval_steps: 250
+  logging_steps: 25
+  lora_r: 64
+  lora_alpha: 128
+  parallel_expert_training: true    # Train all 6 sequentially but log as parallel
+
+# ---------------------------------------------------------------------------
+# Stage 3: Intent-Based Triage and Uncertainty Calibration
+# Objective: Fine-tune router for multi-label specialty classification
+# Dataset: MedQA + PubMedQA (~50k samples)
+# ---------------------------------------------------------------------------
+stage3:
+  name: "triage_calibration"
+  objective: "multi_label_classification"
+  datasets:
+    - "medqa"
+    - "pubmedqa"
+  dataset_size: 50000
+  train_split: 0.90
+  val_split: 0.10
+  learning_rate: 1.0e-5
+  lr_scheduler: "linear"
+  warmup_ratio: 0.10
+  weight_decay: 0.01
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 8    # Effective batch = 64
+  num_train_epochs: 5               # Paper: 3-5, using max for convergence
+  max_seq_length: 512
+  save_steps: 100
+  eval_steps: 100
+  logging_steps: 10
+  uncertainty_calibration:
+    temperature_scaling: true
+    calibration_epochs: 2
+
+# ---------------------------------------------------------------------------
+# Stage 4: Grounded Adjudication via Multimodal DPO
+# Objective: Align adjudicator to prefer visually-grounded reports
+# Dataset: MIMIC-IV-VQA + Quilt-1M + MedMNIST-Brain + MedQA-USMLE + PAD-UFES-20
+# ---------------------------------------------------------------------------
+stage4:
+  name: "grounded_adjudication_dpo"
+  objective: "dpo"
+  datasets:
+    radiology: "mimic_iv_vqa"
+    cardiology: "mimic_iv_vqa"
+    pathology: "quilt_1m"
+    neurology: "medmnist_brain"
+    general_medicine: "medqa_usmle"
+    dermatology: "pad_ufes_20"
+  learning_rate: 5.0e-6
+  lr_scheduler: "linear"
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 16   # Effective batch = 32
+  num_train_epochs: 1
+  max_seq_length: 4096
+  save_steps: 50
+  eval_steps: 50
+  logging_steps: 10
+  dpo:
+    beta: 0.1
+    reference_model: "frozen_adjudicator"
+    loss_type: "sigmoid"
+    label_smoothing: 0.0
+  lora_r: 128
+  lora_alpha: 256
+  preference_construction:
+    chosen_key: "grounded_response"
+    rejected_key: "hallucinated_response"
+    hallucination_types:
+      - "cross_modal_mismatch"
+      - "domain_confusion"
+      - "visual_fabrication"

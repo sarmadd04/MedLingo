@@ -1,0 +1,43 @@
+# =============================================================================
+# MedLingo Inference Configuration
+# =============================================================================
+
+engine:
+  device: "auto"                 # "auto" | "cuda" | "cpu"
+  load_in_4bit: true
+  use_flash_attention: true
+  max_new_tokens: 512
+  temperature: 0.1
+  top_p: 0.9
+  do_sample: false
+  repetition_penalty: 1.15
+
+model_registry:
+  # Paths resolved at runtime from environment variables.
+  # Set MEDLINGO_WEIGHTS_DIR in .env — never hardcode these.
+  weights_base: "${MEDLINGO_WEIGHTS_DIR}"
+  vision_encoder_path: "${MEDLINGO_WEIGHTS_DIR}/vision_encoder"
+  bridge_a_path: "${MEDLINGO_WEIGHTS_DIR}/bridge_pathway_a"
+  bridge_b_path: "${MEDLINGO_WEIGHTS_DIR}/bridge_pathway_b"
+  router_path: "${MEDLINGO_WEIGHTS_DIR}/router"
+  adjudicator_path: "${MEDLINGO_WEIGHTS_DIR}/adjudicator_dpo"
+  specialist_adapters:
+    pathology: "${MEDLINGO_WEIGHTS_DIR}/specialists/pathology"
+    radiology: "${MEDLINGO_WEIGHTS_DIR}/specialists/radiology"
+    dermatology: "${MEDLINGO_WEIGHTS_DIR}/specialists/dermatology"
+    cardiology: "${MEDLINGO_WEIGHTS_DIR}/specialists/cardiology"
+    neurology: "${MEDLINGO_WEIGHTS_DIR}/specialists/neurology"
+    general_medicine: "${MEDLINGO_WEIGHTS_DIR}/specialists/general_medicine"
+
+spr:
+  max_rounds: 2
+  convergence_threshold: 0.15   # Stop SPR if delta uncertainty < threshold
+  inject_uncertainty_score: true
+  peer_prompt_template: "peer_review_v2"
+
+logging:
+  level: "INFO"
+  log_uncertainty_scores: true
+  log_routing_decision: true
+  log_spr_transcript: false      # Set true for debugging
+  save_inference_trace: false    # Save full reasoning chain to disk
